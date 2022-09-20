@@ -1,6 +1,7 @@
 const { Client, Location, List, Buttons, LocalAuth } = require('./index')
 const fs = require('fs')
 const converBase64ToImage = require('convert-base64-to-image')
+
 const client = new Client({
     authStrategy: new LocalAuth(),
     puppeteer: { headless: false }
@@ -40,12 +41,14 @@ client.on('message', async msg => {
         //     mediafile.filename,
         //     mediafile.data.length
         // )
-
-        fs.writeFile(`./upload/${msg.from}-${msg.to}.txt`, `data:${mediafile.mimetype};base64,${mediafile.data}`, function (err) {
-            if (err) {
-                console.log(err);
-            }
-        });
+        const base64 = `data:${mediafile.mimetype};base64,${mediafile.data}`
+        const pathToSaveImage = `./upload/image-${msg.from}-${msg.to}.jpeg`
+        converBase64ToImage(base64, pathToSaveImage)
+        // fs.writeFile(`./upload/${msg.from}-${msg.to}.txt`, `data:${mediafile.mimetype};base64,${mediafile.data}`, function (err) {
+        //     if (err) {
+        //         console.log(err);
+        //     }
+        // });
     }
 
 });

@@ -1,6 +1,8 @@
 const { Client, Location, List, Buttons, LocalAuth } = require('./index')
 const fs = require('fs')
-const converBase64ToImage = require('convert-base64-to-image')
+
+const uniqid = require('uniqid')
+
 
 const client = new Client({
     authStrategy: new LocalAuth(),
@@ -32,26 +34,22 @@ client.on('ready', () => {
 });
 
 client.on('message', async msg => {
-    // console.log('MESSAGE RECEIVED', msg);
     const { from, to, body, hasMedia, mediaKey } = msg
+    const chat = await msg.getChat()
     if (hasMedia) {
-        const mediafile = await msg.downloadMedia()
-        // console.log(
-        //     mediafile.mimetype,
-        //     mediafile.filename,
-        //     mediafile.data.length
-        // )
-        const base64 = `data:${mediafile.mimetype};base64,${mediafile.data}`
-        const pathToSaveImage = `./upload/image-${msg.from}-${msg.to}.jpeg`
-        converBase64ToImage(base64, pathToSaveImage)
-        // fs.writeFile(`./upload/${msg.from}-${msg.to}.txt`, `data:${mediafile.mimetype};base64,${mediafile.data}`, function (err) {
-        //     if (err) {
-        //         console.log(err);
-        //     }
-        // });
+        const attachmentData = await msg.downloadMedia()
+        const ext = attachmentData.mimetype.split('/').pop()
+        if (fs.existsSync(`./upload/${chat.isGroup ? chat.name : msg.from}`)) {
+            console.log("El archivo EXISTE!")
+        } else {
+            fs.mkdirSync(`./upload/${chat.isGroup ? chat.name : msg.from}`, { recursive: true })
+        }
+        fs.writeFile(`./upload/${chat.isGroup ? chat.name : msg.from}/${uniqid()}.${ext}`, attachmentData.data, { encoding: 'base64' }, function (err) {
+            console.log('File created')
+            // msg.reply(`*informacion subida *Recuerde fotos nitidas y derechas*`)
+        })
     }
-
-});
+})
 
 client.on('message_create', (msg) => {
     // Fired on all message creations, including your own

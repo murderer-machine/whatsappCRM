@@ -7,7 +7,7 @@ const app = express()
 const http = require('http')
 const server = http.createServer(app)
 const { Server } = require('socket.io')
-const io = new Server(server,{
+const io = new Server(server, {
     cors: {
         origin: "*",
     }
@@ -15,7 +15,7 @@ const io = new Server(server,{
 const cors = require('cors')
 app.use(cors())
 
-
+var socket_
 
 const client = new Client({
     authStrategy: new LocalAuth(),
@@ -60,12 +60,10 @@ client.on('message', async msg => {
         }
         fs.writeFile(`./upload/${chat.isGroup ? `${chat.name}-${msg.from}` : msg.from}/${uniqid()}.${ext}`, attachmentData.data, { encoding: 'base64' }, function (err) {
             console.log('File created')
+            socket_.emit('message', `${chat.isGroup ? `${chat.name}-${msg.from}` : msg.from}`)
             // msg.reply(`*informacion subida *Recuerde fotos nitidas y derechas*`)
         })
-        io.on('connection', (socket) => {
-            console.log('a user connected')
-            socket.emit('mensaje', uniqid())
-        })
+
     }
 })
 
@@ -137,7 +135,10 @@ client.on('disconnected', (reason) => {
 //     })
 // })
 
-
+io.on('connection', (socket) => {
+    console.log('a user connected')
+    socket_ = socket
+})
 server.listen(3001, () => {
     console.log('listening on *:3001');
 });

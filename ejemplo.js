@@ -1,7 +1,20 @@
 const { Client, Location, List, Buttons, LocalAuth } = require('./index')
 const fs = require('fs')
-
 const uniqid = require('uniqid')
+
+const express = require('express')
+const app = express()
+const http = require('http')
+const server = http.createServer(app)
+const { Server } = require('socket.io')
+const io = new Server(server,{
+    cors: {
+        origin: "*",
+    }
+})
+const cors = require('cors')
+app.use(cors())
+
 
 
 const client = new Client({
@@ -36,17 +49,22 @@ client.on('ready', () => {
 client.on('message', async msg => {
     const { from, to, body, hasMedia, mediaKey } = msg
     const chat = await msg.getChat()
+    console.log('entre al mensaje')
     if (hasMedia) {
         const attachmentData = await msg.downloadMedia()
         const ext = attachmentData.mimetype.split('/').pop()
-        if (fs.existsSync(`./upload/${chat.isGroup ? chat.name : msg.from}`)) {
+        if (fs.existsSync(`./upload/${chat.isGroup ? `${chat.name}-${msg.from}` : msg.from}`)) {
             console.log("El archivo EXISTE!")
         } else {
-            fs.mkdirSync(`./upload/${chat.isGroup ? chat.name : msg.from}`, { recursive: true })
+            fs.mkdirSync(`./upload/${chat.isGroup ? `${chat.name}-${msg.from}` : msg.from}`, { recursive: true })
         }
-        fs.writeFile(`./upload/${chat.isGroup ? chat.name : msg.from}/${uniqid()}.${ext}`, attachmentData.data, { encoding: 'base64' }, function (err) {
+        fs.writeFile(`./upload/${chat.isGroup ? `${chat.name}-${msg.from}` : msg.from}/${uniqid()}.${ext}`, attachmentData.data, { encoding: 'base64' }, function (err) {
             console.log('File created')
             // msg.reply(`*informacion subida *Recuerde fotos nitidas y derechas*`)
+        })
+        io.on('connection', (socket) => {
+            console.log('a user connected')
+            socket.emit('mensaje', uniqid())
         })
     }
 })
@@ -112,3 +130,14 @@ client.on('disconnected', (reason) => {
     console.log('Client was logged out', reason);
 });
 
+// io.on('connection', (socket) => {
+//     console.log('a user connected')
+//     socket.on('howdy', (arg) => {
+//         console.log(arg)
+//     })
+// })
+
+
+server.listen(3001, () => {
+    console.log('listening on *:3001');
+});

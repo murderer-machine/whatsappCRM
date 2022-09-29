@@ -1,18 +1,21 @@
 const { Client, Location, List, Buttons, LocalAuth } = require('./index')
+
 const fs = require('fs')
 const uniqid = require('uniqid')
+const http = require('http')
+const { Server } = require('socket.io')
+const fetch = require('node-fetch')
 
 const express = require('express')
 const app = express()
-const http = require('http')
 const server = http.createServer(app)
-const { Server } = require('socket.io')
 const io = new Server(server, {
     cors: {
         origin: "*",
     }
 })
 const cors = require('cors')
+
 app.use(cors())
 
 var socket_
@@ -20,125 +23,72 @@ var socket_
 const client = new Client({
     authStrategy: new LocalAuth(),
     puppeteer: { headless: false }
-});
-
-client.initialize();
-
+})
+client.initialize()
 client.on('loading_screen', (percent, message) => {
-    console.log('LOADING SCREEN', percent, message);
-});
-
+    console.log('LOADING SCREEN', percent, message)
+})
 client.on('qr', (qr) => {
-    // NOTE: This event will not be fired if a session is specified.
-    console.log('QR RECEIVED', qr);
-});
-
+    console.log('QR RECEIVED', qr)
+})
 client.on('authenticated', () => {
-    console.log('AUTHENTICATED');
-});
-
+    console.log('AUTHENTICATED')
+})
 client.on('auth_failure', msg => {
-    // Fired if session restore was unsuccessful
-    console.error('AUTHENTICATION FAILURE', msg);
-});
-
+    console.error('AUTHENTICATION FAILURE', msg)
+})
 client.on('ready', () => {
     console.log('READY');
-});
-
+})
+const insertar = async (id, mensaje) => {
+    const response = await fetch(`http://localhost:3002/api/mensajeswhatsapp/`,
+        {
+            method: 'POST',
+            body: JSON.stringify({
+                puntosVentaId: id,
+                mensaje: mensaje
+            }),
+            headers: {
+                'Content-Type': 'application/json'
+            }
+        })
+    const data = await response.json()
+}
 client.on('message', async msg => {
     const { from, to, body, hasMedia, mediaKey } = msg
     const chat = await msg.getChat()
     console.log('entre al mensaje')
+    if (body) {
+        console.log(body)
+        socket_.emit('message', `${body}`)
+        insertar(2, body)
+    }
     if (hasMedia) {
         const attachmentData = await msg.downloadMedia()
         const ext = attachmentData.mimetype.split('/').pop()
-        if (fs.existsSync(`./upload/${chat.isGroup ? `${chat.name}-${msg.from}` : msg.from}`)) {
+        if (fs.existsSync(`./upload/${chat.name}-${msg.from}`)) {
             console.log("El archivo EXISTE!")
         } else {
-            fs.mkdirSync(`./upload/${chat.isGroup ? `${chat.name}-${msg.from}` : msg.from}`, { recursive: true })
+            fs.mkdirSync(`./upload/${chat.name}-${msg.from}`, { recursive: true })
         }
-        fs.writeFile(`./upload/${chat.isGroup ? `${chat.name}-${msg.from}` : msg.from}/${uniqid()}.${ext}`, attachmentData.data, { encoding: 'base64' }, function (err) {
+        const nombreArchivo = uniqid()
+        fs.writeFile(`./upload/${chat.name}-${msg.from}/${nombreArchivo}.${ext}`, attachmentData.data, { encoding: 'base64' }, function (err) {
             console.log('File created')
-            socket_.emit('message', `${chat.isGroup ? `${chat.name}-${msg.from}` : msg.from}`)
-            // msg.reply(`*informacion subida *Recuerde fotos nitidas y derechas*`)
+            socket_.emit('message', `${chat.name}-${msg.from}`)
+            insertar(2, `${nombreArchivo}.${ext}`)
         })
-
     }
 })
-
-client.on('message_create', (msg) => {
-    // Fired on all message creations, including your own
-    if (msg.fromMe) {
-        // do stuff here
-    }
-});
-
-client.on('message_revoke_everyone', async (after, before) => {
-    // Fired whenever a message is deleted by anyone (including you)
-    console.log(after); // message after it was deleted.
-    if (before) {
-        console.log(before); // message before it was deleted.
-    }
-});
-
-client.on('message_revoke_me', async (msg) => {
-    // Fired whenever a message is only deleted in your own view.
-    console.log(msg.body); // message before it was deleted.
-});
-
-client.on('message_ack', (msg, ack) => {
-    /*
-        == ACK VALUES ==
-        ACK_ERROR: -1
-        ACK_PENDING: 0
-        ACK_SERVER: 1
-        ACK_DEVICE: 2
-        ACK_READ: 3
-        ACK_PLAYED: 4
-    */
-
-    if (ack == 3) {
-        // The message was read
-    }
-});
-
-client.on('group_join', (notification) => {
-    // User has joined or been added to the group.
-    console.log('join', notification);
-    notification.reply('User joined.');
-});
-
-client.on('group_leave', (notification) => {
-    // User has left or been kicked from the group.
-    console.log('leave', notification);
-    notification.reply('User left.');
-});
-
-client.on('group_update', (notification) => {
-    // Group picture, subject or description has been updated.
-    console.log('update', notification);
-});
-
 client.on('change_state', state => {
-    console.log('CHANGE STATE', state);
-});
-
+    console.log('CHANGE STATE', state)
+})
 client.on('disconnected', (reason) => {
-    console.log('Client was logged out', reason);
-});
-
-// io.on('connection', (socket) => {
-//     console.log('a user connected')
-//     socket.on('howdy', (arg) => {
-//         console.log(arg)
-//     })
-// })
-
+    console.log('Client was logged out', reason)
+})
 io.on('connection', (socket) => {
     console.log('a user connected')
     socket_ = socket
 })
 server.listen(3001, () => {
-    console.log('listening on *:3001');
-});
+    console.log('listening on *:3001')
+})
